@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>전기기능사 실기 채점 시뮬레이터</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e1117;--panel:#161c27;--card:#1c2336;--border:#252e45;
+  --blue:#4a8cf7;--yellow:#f0c040;--green:#3ecf8e;--red:#f06060;
+  --text:#dde4f4;--sub:#8892aa;--mono:'JetBrains Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;padding:28px 16px 80px}
+
+/* HEADER */
+.hd{text-align:center;margin-bottom:36px}
+.hd .pill{display:inline-block;background:rgba(74,140,247,.14);border:1px solid rgba(74,140,247,.35);color:var(--blue);font-size:11px;font-weight:700;letter-spacing:2px;padding:4px 14px;border-radius:20px;text-transform:uppercase;margin-bottom:12px}
+.hd h1{font-size:clamp(22px,5vw,38px);font-weight:900;letter-spacing:-.5px;line-height:1.2}
+.hd h1 em{color:var(--blue);font-style:normal}
+.hd p{color:var(--sub);font-size:12px;margin-top:8px}
+
+/* CTRL BOX */
+.ctrl{max-width:1100px;margin:0 auto 24px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px}
+.ctrl-top{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.cg{display:flex;flex-direction:column;gap:7px}
+.cg label{font-size:11px;color:var(--sub);letter-spacing:1px;text-transform:uppercase}
+
+/* 모드 탭 */
+.mode-tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:3px}
+.mtab{padding:7px 16px;border-radius:6px;border:none;background:none;color:var(--sub);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.mtab.on{background:var(--blue);color:#fff}
+.mtab:hover:not(.on){color:var(--text)}
+
+/* 랜덤 모드: 인원수 */
+.cnt-btns{display:flex;gap:6px;flex-wrap:wrap}
+.cb{padding:8px 16px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--sub);font-family:var(--mono);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.cb:hover{border-color:var(--blue);color:var(--text)}
+.cb.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.ni{width:72px;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:var(--mono);font-size:14px;font-weight:600;text-align:center;outline:none;transition:border-color .15s}
+.ni:focus{border-color:var(--blue)}
+.ni::placeholder{color:var(--sub)}
+
+/* 생성 버튼 */
+.gbtn{padding:11px 28px;border-radius:8px;background:var(--blue);border:none;color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;white-space:nowrap}
+.gbtn:hover{background:#3a7de0}
+.gbtn:active{transform:scale(.97)}
+
+/* 목표점수 그룹 섹션 */
+.tgt-section{display:none}
+.tgt-section.show{display:block}
+
+.tgt-groups{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.tgt-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:12px 16px;
+  animation:slideIn .2s ease;
+  flex-wrap:wrap;
+}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+.tgt-row .grp-color{
+  width:10px;height:10px;border-radius:50%;flex-shrink:0;
+}
+.tgt-row .lbl{font-size:11px;color:var(--sub);white-space:nowrap}
+.tgt-row input[type=range]{
+  -webkit-appearance:none;width:160px;height:4px;
+  background:var(--border);border-radius:99px;outline:none;cursor:pointer;
+  flex-shrink:0;
+}
+.tgt-row input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;
+  border-radius:50%;border:2px solid var(--bg);cursor:pointer;
+}
+.tgt-score-val{font-family:var(--mono);font-size:16px;font-weight:700;min-width:42px;text-align:right}
+.tgt-row .sep{color:var(--border);font-size:18px;user-select:none}
+
+.cnt-input{
+  width:60px;padding:6px 8px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg);
+  color:var(--text);font-family:var(--mono);font-size:14px;font-weight:700;
+  text-align:center;outline:none;transition:border-color .15s;
+}
+.cnt-input:focus{border-color:var(--blue)}
+
+.person-lbl{font-size:12px;color:var(--sub);white-space:nowrap}
+
+.del-btn{
+  margin-left:auto;width:28px;height:28px;border-radius:6px;
+  border:1px solid rgba(240,96,96,.3);background:none;
+  color:rgba(240,96,96,.6);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;
+}
+.del-btn:hover{background:rgba(240,96,96,.1);border-color:var(--red);color:var(--red)}
+
+.add-group-btn{
+  padding:9px 18px;border-radius:8px;
+  border:1px dashed rgba(74,140,247,.4);background:rgba(74,140,247,.06);
+  color:var(--blue);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .15s;width:100%;
+}
+.add-group-btn:hover{background:rgba(74,140,247,.12);border-color:var(--blue)}
+
+.tgt-total-note{font-size:12px;color:var(--sub);margin-top:6px}
+.tgt-total-note span{font-family:var(--mono);color:var(--yellow);font-weight:700}
+
+/* SUMMARY */
+.sm{max-width:1100px;margin:0 auto 16px;display:flex;gap:10px;flex-wrap:wrap}
+.sc{padding:8px 16px;border-radius:8px;background:var(--panel);border:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:8px}
+.sc .n{font-family:var(--mono);font-size:15px;font-weight:700}
+.sc .n.g{color:var(--green)}.sc .n.r{color:var(--red)}.sc .n.b{color:var(--blue)}.sc .n.y{color:var(--yellow)}
+
+/* GROUP LEGEND */
+.grp-legend{max-width:1100px;margin:0 auto 12px;display:flex;gap:8px;flex-wrap:wrap}
+.gl-chip{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 12px;border-radius:20px;
+  border:1px solid var(--border);background:var(--panel);
+  font-size:12px;color:var(--sub);
+}
+.gl-dot{width:9px;height:9px;border-radius:50%}
+
+/* TABLE */
+.tbl-wrap{max-width:1100px;margin:0 auto;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+
+thead tr:first-child th{background:var(--panel);border-bottom:2px solid rgba(74,140,247,.4);padding:10px 8px;white-space:nowrap;font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.5px;text-align:center;border-right:1px solid var(--border)}
+thead tr:first-child th:last-child{border-right:none}
+thead tr.sh th{background:#121621;border-bottom:1px solid var(--border);padding:8px 8px 6px;font-size:11px;color:var(--sub);text-align:center;white-space:nowrap;border-right:1px solid rgba(37,46,69,.6)}
+.mxlbl{display:block;font-family:var(--mono);font-size:10px;color:rgba(74,140,247,.5);margin-top:2px}
+
+tbody tr{border-bottom:1px solid rgba(37,46,69,.7);transition:background .1s;animation:fadeUp .3s ease both}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody tr:last-child{border-bottom:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* 그룹 구분선 */
+tbody tr.group-start td{border-top:2px solid rgba(255,255,255,.08)}
+
+td{padding:11px 8px;text-align:center;font-family:var(--mono);font-size:14px;font-weight:600;border-right:1px solid rgba(37,46,69,.5)}
+td:last-child{border-right:none}
+td.idx{color:var(--sub);font-size:12px;background:var(--panel);min-width:44px}
+td.grp-marker{width:5px;padding:0;border-right:1px solid var(--border)}
+td.sb{border-right:1px solid var(--border)!important}
+td.tot{font-size:16px;font-weight:700;background:var(--panel);border-left:2px solid var(--border);min-width:62px}
+td.tot.pass{color:var(--green)}td.tot.fail{color:var(--red)}
+td.vd{background:var(--panel);padding:8px 6px;min-width:60px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif}
+.badge.pass{background:rgba(62,207,142,.14);color:var(--green);border:1px solid rgba(62,207,142,.3)}
+.badge.fail{background:rgba(240,96,96,.14);color:var(--red);border:1px solid rgba(240,96,96,.3)}
+
+.s0{color:#f06060}.slo{color:#f0a060}.smd{color:var(--text)}.shi{color:#60d0a0}.smx{color:var(--green)}
+
+tfoot td{background:#121621;border-top:2px solid var(--border);padding:10px 8px;font-family:var(--mono);font-size:12px;color:var(--sub);text-align:center;border-right:1px solid rgba(37,46,69,.5)}
+tfoot td.ft{color:var(--yellow);font-size:14px;font-weight:700;border-left:2px solid var(--border)}
+
+.empty{max-width:1100px;margin:0 auto;text-align:center;padding:70px 20px;color:var(--sub)}
+.empty .ico{font-size:44px;margin-bottom:16px}
+.empty p{font-size:14px}
+
+@media(max-width:600px){
+  .gbtn{width:100%}
+  .tgt-row input[type=range]{width:110px}
+}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="pill">국가기술자격 실기</div>
+  <h1>전기기능사 <em>채점 시뮬레이터</em></h1>
+  <p>※ 참고용입니다. 실제 시험 채점과 다를 수 있습니다.</p>
+</div>
+
+<div class="ctrl">
+  <!-- 모드 + 생성 버튼 -->
+  <div class="ctrl-top">
+    <div class="cg">
+      <label>배분 방식</label>
+      <div class="mode-tabs">
+        <button class="mtab on" onclick="setMode('random',this)">🎲 완전 랜덤</button>
+        <button class="mtab" onclick="setMode('target',this)">🎯 목표점수 그룹</button>
+      </div>
+    </div>
+
+    <!-- 랜덤 모드 인원 -->
+    <div class="cg" id="randomCtrl">
+      <label>인원 수</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="cnt-btns">
+          <button class="cb" onclick="setCount(3,this)">3명</button>
+          <button class="cb on" onclick="setCount(5,this)">5명</button>
+          <button class="cb" onclick="setCount(10,this)">10명</button>
+          <button class="cb" onclick="setCount(20,this)">20명</button>
+          <button class="cb" onclick="setCount(30,this)">30명</button>
+        </div>
+        <input class="ni" id="ni" type="number" min="1" max="100" placeholder="직접">
+      </div>
+    </div>
+
+    <button class="gbtn" style="margin-left:auto" onclick="generate()">🎲 점수 생성</button>
+  </div>
+
+  <!-- 목표점수 그룹 -->
+  <div class="tgt-section" id="tgtSection">
+    <div class="tgt-groups" id="tgtGroups"></div>
+    <button class="add-group-btn" onclick="addGroup()">＋ 목표점수 그룹 추가</button>
+    <div class="tgt-total-note" id="tgtNote"></div>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="sm" id="smEl" style="display:none"></div>
+<!-- Group legend -->
+<div class="grp-legend" id="legendEl" style="display:none"></div>
+<!-- Table -->
+<div id="area">
+  <div class="empty"><div class="ico">📋</div><p>설정 후 <strong>점수 생성</strong>을 눌러주세요</p></div>
+</div>
+
+<script>
+// ── 채점 항목 ──
+const ITEMS = [
+  {id:'동작',     name:'동작',         max:25, steps:[0,25],                    secEnd:true},
+  {id:'굽힘',     name:'전선관 굽힘',   max:10, steps:[0,2,4,6,8,10]},
+  {id:'고정',     name:'전선관 고정',   max:5,  steps:[0,1,2,3,4,5]},
+  {id:'기구',     name:'기구고정·배치', max:5,  steps:[0,1,2,3,4,5]},
+  {id:'색별',     name:'색별 배선',     max:10, steps:[0,10],                   secEnd:true},
+  {id:'배선상태', name:'배선 상태',     max:10, steps:[0,1,2,3,4,5,6,7,8,9,10]},
+  {id:'배선정리', name:'배선 정리',     max:6,  steps:[0,6]},
+  {id:'전원준비', name:'전원준비',      max:3,  steps:[0,3]},
+  {id:'단자',     name:'단자 조임',     max:10, steps:[0,1,2,3,4,5,6,7,8,9,10], secEnd:true},
+  {id:'파손',     name:'기구 파손',     max:4,  steps:[0,1,2,3,4],              secEnd:true},
+  {id:'기구배치', name:'기구배치도',    max:4,  steps:[0,2,4]},
+  {id:'배관배치', name:'배관·기구배치', max:8,  steps:[0,2,4,6,8]},
+];
+const SECS = [
+  {label:'동작',      cols:1, max:25},
+  {label:'배관작업',  cols:4, max:30},
+  {label:'배선 미결선',cols:4, max:29},
+  {label:'경제성',    cols:1, max:4},
+  {label:'치수',      cols:2, max:12},
+];
+
+// 그룹 색상 팔레트
+const GROUP_COLORS = ['#4a8cf7','#f0c040','#3ecf8e','#f06060','#c084fc','#fb923c','#22d3ee','#f472b6'];
+
+// ── 상태 ──
+let mode = 'random';
+let randomCount = 5;
+let groups = [
+  {score: 80, count: 3},
+  {score: 70, count: 2},
+];
+
+// ── 모드 전환 ──
+function setMode(m, btn) {
+  mode = m;
+  document.querySelectorAll('.mtab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('randomCtrl').style.display = m === 'random' ? '' : 'none';
+  document.getElementById('tgtSection').classList.toggle('show', m === 'target');
+  if (m === 'target') renderGroups();
+}
+
+function setCount(n, btn) {
+  randomCount = n;
+  document.querySelectorAll('.cb').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  document.getElementById('ni').value = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('ni').addEventListener('input', function() {
+    const v = parseInt(this.value);
+    if (!isNaN(v) && v >= 1 && v <= 100) {
+      randomCount = v;
+      document.querySelectorAll('.cb').forEach(b => b.classList.remove('on'));
+    }
+  });
+  renderGroups();
+});
+
+// ── 목표 그룹 UI ──
+function addGroup() {
+  groups.push({score: 65, count: 2});
+  renderGroups();
+}
+
+function removeGroup(i) {
+  if (groups.length <= 1) return;
+  groups.splice(i, 1);
+  renderGroups();
+}
+
+function renderGroups() {
+  const container = document.getElementById('tgtGroups');
+  container.innerHTML = '';
+  groups.forEach((g, i) => {
+    const color = GROUP_COLORS[i % GROUP_COLORS.length];
+    const row = document.createElement('div');
+    row.className = 'tgt-row';
+    row.innerHTML = `
+      <div class="grp-color" style="background:${color}"></div>
+      <span class="lbl">목표</span>
+      <input type="range" min="0" max="100" value="${g.score}"
+        style="--thumb-color:${color}"
+        oninput="onGroupScore(${i}, this.value)"
+        onchange="onGroupScore(${i}, this.value)">
+      <span class="tgt-score-val" id="gsv${i}" style="color:${color}">${g.score}점</span>
+      <span class="sep">×</span>
+      <input class="cnt-input" type="number" min="1" max="100" value="${g.count}"
+        oninput="onGroupCount(${i}, this.value)"
+        style="border-color:${color}40">
+      <span class="person-lbl">명</span>
+      ${groups.length > 1 ? `<button class="del-btn" onclick="removeGroup(${i})">✕</button>` : '<div style="width:28px"></div>'}
+    `;
+    // thumb color
+    const rangeEl = row.querySelector('input[type=range]');
+    rangeEl.style.setProperty('--tc', color);
+    container.appendChild(row);
+  });
+
+  // 동적 thumb 색상
+  document.querySelectorAll('.tgt-row input[type=range]').forEach(r => {
+    const color = r.style.getPropertyValue('--thumb-color') || '#4a8cf7';
+    r.addEventListener('input', function() {
+      this.style.setProperty('--thumb-color', color);
+    });
+    // inject dynamic style per slider
+    r.id = r.id || 'tr' + Math.random().toString(36).slice(2);
+  });
+
+  updateGroupNote();
+}
+
+// 슬라이더 thumb 색을 동적으로 바꾸기 위한 스타일 인젝션
+(function injectThumbStyle() {
+  const style = document.createElement('style');
+  // 각 tgt-row의 range thumb를 JS로 직접 처리
+  document.head.appendChild(style);
+  window._thumbStyleEl = style;
+})();
+
+function updateThumbColors() {
+  // 각 range에 CSS variable로 색 적용
+  document.querySelectorAll('.tgt-row input[type=range]').forEach((r, i) => {
+    const color = GROUP_COLORS[i % GROUP_COLORS.length];
+    // CSS에서 var(--tc) 쓸 수 없으므로 직접 background-image 조작
+    r.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${r.value}%, var(--border) ${r.value}%, var(--border) 100%)`;
+    r.setAttribute('data-color', color);
+  });
+}
+
+function onGroupScore(i, v) {
+  groups[i].score = parseInt(v);
+  const el = document.getElementById('gsv' + i);
+  if (el) el.textContent = v + '점';
+  updateGroupNote();
+  updateThumbColors();
+}
+
+function onGroupCount(i, v) {
+  const n = parseInt(v);
+  if (!isNaN(n) && n >= 1) groups[i].count = n;
+  updateGroupNote();
+}
+
+function updateGroupNote() {
+  const total = groups.reduce((a, g) => a + (parseInt(g.count) || 0), 0);
+  document.getElementById('tgtNote').innerHTML = `총 <span>${total}명</span> 생성 예정`;
+  updateThumbColors();
+}
+
+// ── 랜덤 알고리즘 ──
+function gaussPick(steps) {
+  const n = steps.length;
+  if (n === 1) return steps[0];
+  const mid = (n - 1) / 2;
+  const w = steps.map((_, i) => Math.exp(-2.8 * Math.pow((i - mid) / (mid || 1), 2)));
+  const sum = w.reduce((a, b) => a + b, 0);
+  let r = Math.random() * sum;
+  for (let i = 0; i < n; i++) { r -= w[i]; if (r <= 0) return steps[i]; }
+  return steps[Math.floor(n / 2)];
+}
+
+function randPerson() {
+  const s = {};
+  ITEMS.forEach(it => { s[it.id] = gaussPick(it.steps); });
+  return s;
+}
+
+function getTotal(s) { return ITEMS.reduce((a, it) => a + s[it.id], 0); }
+
+function targetPerson(tgt) {
+  const s = randPerson();
+  for (let k = 0; k < 500; k++) {
+    const diff = tgt - getTotal(s);
+    if (Math.abs(diff) <= 2) break;
+    const pool = ITEMS.filter(it => diff > 0 ? s[it.id] < it.max : s[it.id] > 0);
+    if (!pool.length) break;
+    const it = pool[Math.floor(Math.random() * pool.length)];
+    const idx = it.steps.indexOf(s[it.id]);
+    if (diff > 0 && idx < it.steps.length - 1) s[it.id] = it.steps[idx + 1];
+    else if (diff < 0 && idx > 0)              s[it.id] = it.steps[idx - 1];
+  }
+  return s;
+}
+
+function scoreClass(v, max) {
+  if (v === 0) return 's0';
+  const r = v / max;
+  if (r <= 0.25) return 'slo';
+  if (r <= 0.6)  return 'smd';
+  if (r < 1)     return 'shi';
+  return 'smx';
+}
+
+// ── 생성 ──
+function generate() {
+  const niVal = parseInt(document.getElementById('ni').value);
+  if (!isNaN(niVal) && niVal >= 1 && niVal <= 100) randomCount = niVal;
+
+  let people = [];   // {scores, groupIdx}
+  let groupMeta = [];
+
+  if (mode === 'random') {
+    people = Array.from({length: randomCount}, () => ({s: randPerson(), gi: -1}));
+  } else {
+    groups.forEach((g, gi) => {
+      const n = parseInt(g.count) || 0;
+      for (let i = 0; i < n; i++) {
+        people.push({s: targetPerson(g.score), gi, groupColor: GROUP_COLORS[gi % GROUP_COLORS.length]});
+      }
+    });
+    groupMeta = groups.map((g, i) => ({score: g.score, count: g.count, color: GROUP_COLORS[i % GROUP_COLORS.length]}));
+  }
+
+  const totals = people.map(p => getTotal(p.s));
+  const passN  = totals.filter(t => t >= 60).length;
+  const avg    = (totals.reduce((a,b)=>a+b,0)/people.length).toFixed(1);
+  const maxT   = Math.max(...totals);
+  const minT   = Math.min(...totals);
+
+  // Summary
+  const smEl = document.getElementById('smEl');
+  smEl.style.display = 'flex';
+  smEl.innerHTML = `
+    <div class="sc">총 <span class="n b">${people.length}명</span></div>
+    <div class="sc">합격 <span class="n g">${passN}명</span></div>
+    <div class="sc">불합격 <span class="n r">${people.length - passN}명</span></div>
+    <div class="sc">합격률 <span class="n b">${Math.round(passN/people.length*100)}%</span></div>
+    <div class="sc">평균 <span class="n y">${avg}점</span></div>
+    <div class="sc">최고 <span class="n g">${maxT}점</span></div>
+    <div class="sc">최저 <span class="n r">${minT}점</span></div>
+  `;
+
+  // Legend (목표 모드)
+  const legEl = document.getElementById('legendEl');
+  if (mode === 'target' && groupMeta.length) {
+    legEl.style.display = 'flex';
+    legEl.innerHTML = groupMeta.map((g,i) => `
+      <div class="gl-chip">
+        <div class="gl-dot" style="background:${g.color}"></div>
+        목표 ${g.score}점 · ${g.count}명
+      </div>
+    `).join('');
+  } else {
+    legEl.style.display = 'none';
+  }
+
+  // Table
+  let html = `<div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>`;
+  html += `<th rowspan="2" style="min-width:44px">No.</th>`;
+  if (mode === 'target') html += `<th rowspan="2" style="min-width:10px;padding:0"></th>`;
+  SECS.forEach(s => {
+    html += `<th colspan="${s.cols}" style="min-width:${s.cols*68}px">${s.label}<br><span style="font-family:var(--mono);font-size:10px;color:rgba(74,140,247,.5)">${s.max}점</span></th>`;
+  });
+  html += `<th rowspan="2" style="min-width:62px">총점<br><span style="font-family:var(--mono);font-size:10px;color:rgba(74,140,247,.5)">/100</span></th>`;
+  html += `<th rowspan="2" style="min-width:58px">판정</th></tr>`;
+
+  html += `<tr class="sh">`;
+  if (mode === 'target') html += `<th style="min-width:10px;padding:0"></th>`;
+  ITEMS.forEach(it => {
+    html += `<th style="min-width:68px">${it.name}<span class="mxlbl">/${it.max}점</span></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  let prevGi = -2;
+  people.forEach((p, i) => {
+    const total = totals[i];
+    const pass  = total >= 60;
+    const isGroupStart = mode === 'target' && p.gi !== prevGi;
+    prevGi = p.gi;
+    html += `<tr class="${isGroupStart ? 'group-start' : ''}" style="animation-delay:${i*30}ms">`;
+    html += `<td class="idx">${i+1}</td>`;
+    if (mode === 'target') {
+      html += `<td class="grp-marker" style="background:${p.groupColor}22;border-left:3px solid ${p.groupColor}"></td>`;
+    }
+    ITEMS.forEach(it => {
+      const v   = p.s[it.id];
+      const cls = scoreClass(v, it.max) + (it.secEnd ? ' sb' : '');
+      html += `<td class="${cls}">${v}</td>`;
+    });
+    html += `<td class="tot ${pass?'pass':'fail'}">${total}</td>`;
+    html += `<td class="vd"><span class="badge ${pass?'pass':'fail'}">${pass?'합격':'불합격'}</span></td>`;
+    html += `</tr>`;
+  });
+
+  html += `</tbody><tfoot><tr>`;
+  html += `<td style="color:var(--sub);font-size:11px">평균</td>`;
+  if (mode === 'target') html += `<td></td>`;
+  ITEMS.forEach(it => {
+    const a = (people.reduce((s,p)=>s+p.s[it.id],0)/people.length).toFixed(1);
+    html += `<td class="${it.secEnd?'sb':''}">${a}</td>`;
+  });
+  html += `<td class="ft">${avg}</td><td></td></tr></tfoot></table></div></div>`;
+
+  document.getElementById('area').innerHTML = html;
+}
+</script>
+</body>
+</html>
