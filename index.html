@@ -419,9 +419,8 @@ function generate(){
   if(mode !== 'random') html += `<th rowspan="2" style="min-width:56px">판정</th>`;
   html += `</tr>`;
 
-  // 헤더 2행
+  // 헤더 2행 (그룹 마커는 rowspan=2이므로 여기선 추가 안 함)
   html += `<tr class="item-head">`;
-  if(mode==='target') html += `<th style="min-width:6px;padding:0"></th>`;
   ITEMS.forEach(it => {
     const fc = it.fixed ? ' fixed-col' : '';
     html += `<th class="${fc}">${it.name}${it.fixed ? ' 🔒' : ''}<span class="mxlbl">${it.fixed ? '25점 고정' : '/'+it.max+'점'}</span></th>`;
