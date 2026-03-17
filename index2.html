@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>채점 시뮬레이터 — 커스텀 설정</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e1117;--panel:#161c27;--card:#1c2336;--border:#252e45;
+  --blue:#4a8cf7;--yellow:#f0c040;--green:#3ecf8e;--red:#f06060;
+  --orange:#fb923c;--purple:#c084fc;
+  --text:#dde4f4;--sub:#8892aa;--mono:'JetBrains Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;padding:28px 16px 80px}
+
+/* ── HEADER ── */
+.hd{text-align:center;margin-bottom:32px}
+.hd .pill{display:inline-block;background:rgba(251,146,60,.14);border:1px solid rgba(251,146,60,.35);color:var(--orange);font-size:11px;font-weight:700;letter-spacing:2px;padding:4px 14px;border-radius:20px;text-transform:uppercase;margin-bottom:12px}
+.hd h1{font-size:clamp(20px,4vw,34px);font-weight:900;letter-spacing:-.5px;line-height:1.2}
+.hd h1 em{color:var(--orange);font-style:normal}
+.hd p{color:var(--sub);font-size:12px;margin-top:8px}
+
+/* ── NAV TABS ── */
+.nav{max-width:1200px;margin:0 auto 24px;display:flex;gap:8px}
+.nav a{
+  padding:9px 20px;border-radius:8px;border:1px solid var(--border);
+  background:var(--panel);color:var(--sub);font-size:13px;font-weight:600;
+  text-decoration:none;transition:all .15s;
+}
+.nav a:hover{border-color:var(--blue);color:var(--text)}
+.nav a.cur{background:var(--orange);border-color:var(--orange);color:#fff}
+
+/* ── TWO-COL LAYOUT ── */
+.layout{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+/* ── PANEL ── */
+.pnl{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px}
+.pnl-title{font-size:13px;font-weight:700;color:var(--sub);letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.pnl-title span{font-size:16px}
+
+/* ── TOTAL BAR ── */
+.total-bar{
+  display:flex;align-items:center;gap:12px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:14px 18px;margin-bottom:20px;
+}
+.total-bar .lbl{font-size:12px;color:var(--sub)}
+.total-bar .val{font-family:var(--mono);font-size:28px;font-weight:700;min-width:60px}
+.total-bar .val.ok{color:var(--green)}
+.total-bar .val.over{color:var(--red)}
+.total-bar .val.under{color:var(--yellow)}
+.total-bar .bar-wrap{flex:1}
+.total-bar .bar-track{height:8px;background:var(--border);border-radius:99px;overflow:hidden}
+.total-bar .bar-fill{height:100%;border-radius:99px;transition:width .3s,background .3s}
+.total-bar .bar-hint{font-size:11px;color:var(--sub);margin-top:4px;text-align:right}
+
+/* ── ITEM LIST ── */
+.item-list{display:flex;flex-direction:column;gap:8px}
+.item-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:14px 16px;
+  display:grid;
+  grid-template-columns: 28px 1fr 90px 80px 80px 32px;
+  align-items:center;gap:10px;
+  transition:border-color .15s;
+  animation:slideIn .2s ease;
+}
+.item-card:hover{border-color:rgba(74,140,247,.3)}
+@keyframes slideIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+.drag-handle{color:var(--border);font-size:18px;cursor:grab;user-select:none;text-align:center}
+.drag-handle:active{cursor:grabbing}
+
+/* fixed toggle */
+.fix-btn{
+  width:28px;height:28px;border-radius:6px;border:1px solid var(--border);
+  background:none;color:var(--sub);font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;
+}
+.fix-btn.on{background:rgba(240,192,64,.15);border-color:var(--yellow);color:var(--yellow)}
+.fix-btn:hover{border-color:var(--yellow);color:var(--yellow)}
+
+.field-wrap{display:flex;flex-direction:column;gap:3px}
+.field-wrap .flbl{font-size:10px;color:var(--sub);letter-spacing:.5px;text-transform:uppercase}
+.ifield{
+  width:100%;padding:7px 9px;border-radius:6px;
+  border:1px solid var(--border);background:var(--bg);
+  color:var(--text);font-family:inherit;font-size:13px;
+  outline:none;transition:border-color .15s;
+}
+.ifield:focus{border-color:var(--blue)}
+.ifield.mono{font-family:var(--mono);font-weight:600;text-align:center}
+.ifield:disabled{opacity:.45;cursor:not-allowed;background:rgba(240,192,64,.06);color:var(--yellow);border-color:rgba(240,192,64,.3)}
+
+.del-btn{
+  width:28px;height:28px;border-radius:6px;
+  border:1px solid rgba(240,96,96,.25);background:none;
+  color:rgba(240,96,96,.5);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;
+}
+.del-btn:hover{background:rgba(240,96,96,.1);border-color:var(--red);color:var(--red)}
+
+.add-item-btn{
+  padding:10px;border-radius:8px;
+  border:1px dashed rgba(74,140,247,.35);background:rgba(74,140,247,.05);
+  color:var(--blue);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .15s;width:100%;margin-top:10px;
+}
+.add-item-btn:hover{background:rgba(74,140,247,.12);border-color:var(--blue)}
+
+/* col headers */
+.item-list-header{
+  display:grid;
+  grid-template-columns: 28px 1fr 90px 80px 80px 32px;
+  gap:10px;padding:0 16px 8px;
+}
+.item-list-header span{font-size:10px;color:var(--sub);letter-spacing:.5px;text-transform:uppercase;text-align:center}
+.item-list-header span:nth-child(2){text-align:left}
+
+/* ── RIGHT PANEL ── */
+.gen-section{display:flex;flex-direction:column;gap:14px}
+
+.mode-tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:3px}
+.mtab{flex:1;padding:8px 10px;border-radius:6px;border:none;background:none;color:var(--sub);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;text-align:center}
+.mtab.on{background:var(--blue);color:#fff}
+.mtab:hover:not(.on){color:var(--text)}
+
+.cnt-btns{display:flex;gap:5px;flex-wrap:wrap}
+.cb{padding:7px 13px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--sub);font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.cb:hover{border-color:var(--blue);color:var(--text)}
+.cb.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.ni{width:64px;padding:7px 8px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:var(--mono);font-size:13px;font-weight:600;text-align:center;outline:none;transition:border-color .15s}
+.ni:focus{border-color:var(--blue)}
+.ni::placeholder{color:var(--sub)}
+
+/* target groups */
+.tgt-groups{display:flex;flex-direction:column;gap:8px}
+.tgt-row{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px;flex-wrap:wrap;animation:slideIn .2s ease}
+.tgt-row .lbl{font-size:11px;color:var(--sub);white-space:nowrap}
+.tgt-row input[type=range]{-webkit-appearance:none;flex:1;min-width:80px;height:4px;background:var(--border);border-radius:99px;outline:none;cursor:pointer}
+.tgt-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg);cursor:pointer}
+.tgt-sv{font-family:var(--mono);font-size:14px;font-weight:700;min-width:38px;text-align:right}
+.tgt-ni{width:48px;padding:5px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;font-weight:700;text-align:center;outline:none}
+.tgt-ni:focus{border-color:var(--blue)}
+.tgt-del{width:24px;height:24px;border-radius:5px;border:1px solid rgba(240,96,96,.25);background:none;color:rgba(240,96,96,.5);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.tgt-del:hover{background:rgba(240,96,96,.1);border-color:var(--red);color:var(--red)}
+.add-tgt-btn{padding:8px;border-radius:7px;border:1px dashed rgba(74,140,247,.35);background:rgba(74,140,247,.05);color:var(--blue);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;width:100%}
+.add-tgt-btn:hover{background:rgba(74,140,247,.1);border-color:var(--blue)}
+.tgt-note{font-size:11px;color:var(--sub)}
+.tgt-note span{font-family:var(--mono);color:var(--yellow);font-weight:700}
+
+.gen-btn{
+  padding:13px;border-radius:10px;background:var(--orange);border:none;
+  color:#fff;font-family:'Noto Sans KR',sans-serif;font-size:15px;font-weight:700;
+  cursor:pointer;transition:background .15s;width:100%;
+}
+.gen-btn:hover{background:#e8832a}
+.gen-btn:active{transform:scale(.98)}
+.gen-btn:disabled{opacity:.4;cursor:not-allowed}
+
+.err-msg{
+  padding:10px 14px;border-radius:8px;
+  background:rgba(240,96,96,.1);border:1px solid rgba(240,96,96,.3);
+  color:var(--red);font-size:12px;font-weight:600;
+  display:none;
+}
+.err-msg.show{display:block}
+
+/* ── RESULT TABLE ── */
+.result-wrap{max-width:1200px;margin:24px auto 0}
+.sm{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.sc{padding:8px 16px;border-radius:8px;background:var(--panel);border:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:8px}
+.sc .n{font-family:var(--mono);font-size:15px;font-weight:700}
+.sc .n.g{color:var(--green)}.sc .n.b{color:var(--blue)}.sc .n.y{color:var(--yellow)}
+
+.grp-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.gl-chip{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--panel);font-size:12px;color:var(--sub)}
+.gl-dot{width:8px;height:8px;border-radius:50%}
+
+.tbl-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+
+thead th{background:var(--panel);border-bottom:2px solid rgba(74,140,247,.4);padding:10px 8px;white-space:nowrap;font-size:11px;font-weight:700;color:var(--blue);letter-spacing:.5px;text-align:center;border-right:1px solid var(--border)}
+thead th:last-child{border-right:none}
+thead th.fixed-col{color:var(--yellow);background:rgba(240,192,64,.05)}
+.mxlbl{display:block;font-family:var(--mono);font-size:10px;color:rgba(74,140,247,.5);margin-top:1px;font-weight:400}
+thead th.fixed-col .mxlbl{color:rgba(240,192,64,.6)}
+
+tbody tr{border-bottom:1px solid rgba(37,46,69,.7);transition:background .1s;animation:fadeUp .3s ease both}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody tr:last-child{border-bottom:none}
+tbody tr.gs td{border-top:2px solid rgba(255,255,255,.07)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+td{padding:11px 8px;text-align:center;font-family:var(--mono);font-size:14px;font-weight:600;border-right:1px solid rgba(37,46,69,.5)}
+td:last-child{border-right:none}
+td.idx{color:var(--sub);font-size:12px;background:var(--panel);min-width:38px}
+td.gm{width:4px;padding:0;border-right:1px solid var(--border)!important}
+td.tot{font-size:16px;font-weight:700;background:var(--panel);border-left:2px solid var(--border);min-width:60px;color:var(--green)}
+td.tot.fail{color:var(--red)}
+td.vd{background:var(--panel);padding:8px 6px;min-width:56px}
+td.fixed-cell{background:rgba(240,192,64,.06);color:var(--yellow)!important}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;font-family:'Noto Sans KR',sans-serif}
+.badge.pass{background:rgba(62,207,142,.14);color:var(--green);border:1px solid rgba(62,207,142,.3)}
+.badge.fail{background:rgba(240,96,96,.14);color:var(--red);border:1px solid rgba(240,96,96,.3)}
+.s0{color:#f06060}.slo{color:#f0a060}.smd{color:var(--text)}.shi{color:#60d0a0}.smx{color:var(--green)}
+
+tfoot td{background:#0f1520;border-top:2px solid var(--border);padding:9px 8px;font-family:var(--mono);font-size:12px;color:var(--sub);text-align:center;border-right:1px solid rgba(37,46,69,.4)}
+tfoot td.ft{color:var(--yellow);font-size:14px;font-weight:700;border-left:2px solid var(--border)}
+
+@media(max-width:600px){
+  .item-card{grid-template-columns:1fr 70px 65px 65px 28px;gap:7px}
+  .item-card .drag-handle{display:none}
+  .item-list-header{grid-template-columns:1fr 70px 65px 65px 28px}
+  .item-list-header span:first-child{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="pill">커스텀 채점 기준</div>
+  <h1>채점 시뮬레이터 <em>설정 페이지</em></h1>
+  <p>항목·배점·간격을 자유롭게 설정하고 점수를 생성하세요 (총점 = 100점)</p>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <a href="index.html">← 기본 전기기능사</a>
+  <a href="index2.html" class="cur">⚙️ 커스텀 설정</a>
+</div>
+
+<div class="layout">
+  <!-- LEFT: 항목 설정 -->
+  <div>
+    <div class="pnl">
+      <div class="pnl-title"><span>📋</span> 채점 항목 설정</div>
+
+      <!-- 총점 바 -->
+      <div class="total-bar">
+        <div>
+          <div class="lbl">현재 총점</div>
+          <div class="val under" id="totalVal">0</div>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-track">
+            <div class="bar-fill" id="totalFill" style="width:0%"></div>
+          </div>
+          <div class="bar-hint" id="totalHint">0 / 100점 — 100점이 되어야 생성 가능합니다</div>
+        </div>
+      </div>
+
+      <!-- 열 헤더 -->
+      <div class="item-list-header">
+        <span></span>
+        <span>항목명</span>
+        <span>최고점</span>
+        <span>점수간격</span>
+        <span>고정여부</span>
+        <span></span>
+      </div>
+
+      <div class="item-list" id="itemList"></div>
+
+      <button class="add-item-btn" onclick="addItem()">＋ 항목 추가</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: 생성 설정 -->
+  <div class="gen-section">
+    <div class="pnl">
+      <div class="pnl-title"><span>🎯</span> 배분 방식</div>
+      <div class="mode-tabs" style="margin-bottom:14px">
+        <button class="mtab on" onclick="setMode('random',this)">🎲 랜덤</button>
+        <button class="mtab" onclick="setMode('target',this)">🎯 목표점수</button>
+      </div>
+
+      <!-- 랜덤: 인원수 -->
+      <div id="randCtrl">
+        <div style="font-size:11px;color:var(--sub);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">인원 수</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <div class="cnt-btns">
+            <button class="cb" onclick="setCount(3,this)">3</button>
+            <button class="cb on" onclick="setCount(5,this)">5</button>
+            <button class="cb" onclick="setCount(10,this)">10</button>
+            <button class="cb" onclick="setCount(20,this)">20</button>
+            <button class="cb" onclick="setCount(30,this)">30</button>
+          </div>
+          <input class="ni" id="ni" type="number" min="1" max="100" placeholder="직접">
+        </div>
+      </div>
+
+      <!-- 목표: 그룹 -->
+      <div id="tgtCtrl" style="display:none">
+        <div style="font-size:11px;color:var(--sub);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">목표점수 그룹</div>
+        <div class="tgt-groups" id="tgtGroups"></div>
+        <button class="add-tgt-btn" style="margin-top:8px" onclick="addGroup()">＋ 그룹 추가</button>
+        <div class="tgt-note" style="margin-top:8px" id="tgtNote"></div>
+      </div>
+    </div>
+
+    <div class="err-msg" id="errMsg">⚠️ 총점이 100점이어야 생성할 수 있습니다.</div>
+    <button class="gen-btn" id="genBtn" onclick="generate()">🎲 점수 생성</button>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="result-wrap" id="resultWrap" style="display:none">
+  <div class="sm" id="smEl"></div>
+  <div class="grp-legend" id="legendEl" style="display:none"></div>
+  <div class="tbl-wrap">
+    <div class="tbl-scroll">
+      <table id="resultTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+const GROUP_COLORS = ['#4a8cf7','#f0c040','#3ecf8e','#f06060','#c084fc','#fb923c','#22d3ee','#f472b6'];
+
+// ── 초기 항목 (전기기능사 기본값) ──
+let items = [
+  { id:uid(), name:'동작·유의사항',  max:25, interval:25, fixed:true  },
+  { id:uid(), name:'전선관 굽힘',     max:10, interval:2,  fixed:false },
+  { id:uid(), name:'전선관 고정',     max:5,  interval:1,  fixed:false },
+  { id:uid(), name:'기구고정·배치',   max:5,  interval:1,  fixed:false },
+  { id:uid(), name:'색별 배선',       max:10, interval:10, fixed:false },
+  { id:uid(), name:'배선 상태',       max:10, interval:1,  fixed:false },
+  { id:uid(), name:'배선 정리',       max:6,  interval:6,  fixed:false },
+  { id:uid(), name:'전원준비',        max:3,  interval:3,  fixed:false },
+  { id:uid(), name:'단자 조임',       max:10, interval:1,  fixed:false },
+  { id:uid(), name:'기구 파손',       max:4,  interval:1,  fixed:false },
+  { id:uid(), name:'기구배치도',      max:4,  interval:2,  fixed:false },
+  { id:uid(), name:'배관·기구배치도', max:8,  interval:2,  fixed:false },
+];
+
+let mode = 'random';
+let randomCount = 5;
+let groups = [{score:80,count:3},{score:70,count:2}];
+
+function uid(){ return '_' + Math.random().toString(36).slice(2,9); }
+
+// ── 항목 → 점수 단계 계산 ──
+function getSteps(item){
+  if(item.fixed) return [item.max];
+  const steps = [];
+  const intv = Math.max(1, item.interval);
+  for(let v=0; v<=item.max; v+=intv) steps.push(v);
+  // max가 steps 마지막이 아닐 수 있으면 추가
+  if(steps[steps.length-1] !== item.max) steps.push(item.max);
+  return steps;
+}
+
+// ── 총점 계산 ──
+function sumMax(){ return items.reduce((a,it)=>a+it.max,0); }
+
+function updateTotalBar(){
+  const s = sumMax();
+  const tv = document.getElementById('totalVal');
+  const tf = document.getElementById('totalFill');
+  const th = document.getElementById('totalHint');
+  const genBtn = document.getElementById('genBtn');
+  const errMsg = document.getElementById('errMsg');
+
+  tv.textContent = s;
+  tv.className = 'val ' + (s===100?'ok':s>100?'over':'under');
+
+  const pct = Math.min(s, 110) / 110 * 100;
+  tf.style.width = pct + '%';
+  tf.style.background = s===100 ? 'var(--green)' : s>100 ? 'var(--red)' : 'var(--yellow)';
+
+  if(s === 100){
+    th.textContent = '✅ 100점 — 생성 준비 완료!';
+    genBtn.disabled = false;
+    errMsg.classList.remove('show');
+  } else if(s > 100){
+    th.textContent = `⛔ ${s}점 — ${s-100}점 초과`;
+    genBtn.disabled = true;
+    errMsg.classList.add('show');
+  } else {
+    th.textContent = `${s}점 — ${100-s}점 더 필요`;
+    genBtn.disabled = true;
+    errMsg.classList.add('show');
+  }
+}
+
+// ── 항목 렌더 ──
+function renderItems(){
+  const list = document.getElementById('itemList');
+  list.innerHTML = '';
+  items.forEach((item, i) => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.draggable = true;
+    card.dataset.idx = i;
+    card.innerHTML = `
+      <div class="drag-handle" title="드래그로 순서 변경">⠿</div>
+      <div class="field-wrap">
+        <div class="flbl">항목명</div>
+        <input class="ifield" type="text" value="${item.name}" placeholder="항목명"
+          oninput="items[${i}].name=this.value">
+      </div>
+      <div class="field-wrap">
+        <div class="flbl">최고점</div>
+        <input class="ifield mono" type="number" min="1" max="100" value="${item.max}"
+          ${item.fixed?'disabled':''} style="${item.fixed?'color:var(--yellow);border-color:rgba(240,192,64,.3);background:rgba(240,192,64,.06)':''}"
+          oninput="onMax(${i},this.value)">
+      </div>
+      <div class="field-wrap">
+        <div class="flbl">점수간격</div>
+        <input class="ifield mono" type="number" min="1" max="100" value="${item.interval}"
+          ${item.fixed?'disabled':''} style="${item.fixed?'color:var(--yellow);border-color:rgba(240,192,64,.3);background:rgba(240,192,64,.06)':''}"
+          placeholder="간격" oninput="onInterval(${i},this.value)">
+      </div>
+      <div class="field-wrap" style="align-items:center;justify-content:center">
+        <div class="flbl" style="text-align:center">고정</div>
+        <button class="fix-btn ${item.fixed?'on':''}" onclick="toggleFixed(${i})" title="${item.fixed?'고정 해제':'이 점수 고정'}">
+          ${item.fixed?'🔒':'🔓'}
+        </button>
+      </div>
+      <button class="del-btn" onclick="delItem(${i})" title="항목 삭제">✕</button>
+    `;
+    // 드래그 이벤트
+    card.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', i); card.style.opacity='.4'; });
+    card.addEventListener('dragend',   () => card.style.opacity='1');
+    card.addEventListener('dragover',  e => e.preventDefault());
+    card.addEventListener('drop',      e => {
+      e.preventDefault();
+      const from = parseInt(e.dataTransfer.getData('text/plain'));
+      const to   = parseInt(card.dataset.idx);
+      if(from === to) return;
+      const tmp = items.splice(from, 1)[0];
+      items.splice(to, 0, tmp);
+      renderItems(); updateTotalBar();
+    });
+    list.appendChild(card);
+  });
+  updateTotalBar();
+}
+
+function addItem(){
+  items.push({id:uid(), name:'새 항목', max:5, interval:1, fixed:false});
+  renderItems();
+}
+function delItem(i){
+  if(items.length <= 1) return;
+  items.splice(i,1);
+  renderItems();
+}
+function onMax(i, v){
+  const n = parseInt(v);
+  if(!isNaN(n) && n>=1 && n<=100){
+    items[i].max = n;
+    if(items[i].fixed) items[i].interval = n;
+    updateTotalBar();
+  }
+}
+function onInterval(i, v){
+  const n = parseInt(v);
+  if(!isNaN(n) && n>=1) { items[i].interval=n; updateTotalBar(); }
+}
+function toggleFixed(i){
+  items[i].fixed = !items[i].fixed;
+  if(items[i].fixed) items[i].interval = items[i].max;
+  renderItems();
+}
+
+// ── 모드 / 인원수 ──
+function setMode(m, btn){
+  mode = m;
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('randCtrl').style.display = m==='random'?'':'none';
+  document.getElementById('tgtCtrl').style.display  = m==='target'?'':'none';
+  if(m==='target') renderGroups();
+}
+function setCount(n, btn){
+  randomCount = n;
+  document.querySelectorAll('.cb').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  document.getElementById('ni').value='';
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('ni').addEventListener('input', function(){
+    const v=parseInt(this.value);
+    if(!isNaN(v)&&v>=1&&v<=100){ randomCount=v; document.querySelectorAll('.cb').forEach(b=>b.classList.remove('on')); }
+  });
+  renderItems();
+  renderGroups();
+});
+
+// ── 목표 그룹 ──
+function addGroup(){ groups.push({score:70,count:2}); renderGroups(); }
+function removeGroup(i){ if(groups.length<=1) return; groups.splice(i,1); renderGroups(); }
+function renderGroups(){
+  const c = document.getElementById('tgtGroups');
+  c.innerHTML='';
+  groups.forEach((g,i)=>{
+    const col = GROUP_COLORS[i%GROUP_COLORS.length];
+    const row = document.createElement('div');
+    row.className = 'tgt-row';
+    row.innerHTML = `
+      <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></div>
+      <span class="lbl">목표</span>
+      <input type="range" min="60" max="100" value="${g.score}" data-color="${col}"
+        oninput="onGS(${i},this.value,this)">
+      <span class="tgt-sv" id="tgsv${i}" style="color:${col}">${g.score}점</span>
+      <input class="tgt-ni" type="number" min="1" max="100" value="${g.count}"
+        oninput="onGC(${i},this.value)">
+      <span class="lbl">명</span>
+      ${groups.length>1?`<button class="tgt-del" onclick="removeGroup(${i})">✕</button>`:''}
+    `;
+    const r = row.querySelector('input[type=range]');
+    applyRC(r, g.score, col);
+    c.appendChild(row);
+  });
+  updateTgtNote();
+}
+function applyRC(el, val, col){
+  const pct = (val-60)/40*100;
+  el.style.background=`linear-gradient(to right,${col} 0%,${col} ${pct}%,var(--border) ${pct}%,var(--border) 100%)`;
+  if(!el.id) el.id='tr'+Math.random().toString(36).slice(2);
+  let s=document.getElementById('ds'+el.id);
+  if(!s){s=document.createElement('style');s.id='ds'+el.id;document.head.appendChild(s);}
+  s.textContent=`#${el.id}::-webkit-slider-thumb{background:${col}!important}`;
+}
+function onGS(i,v,el){ groups[i].score=parseInt(v); document.getElementById('tgsv'+i).textContent=v+'점'; applyRC(el,parseInt(v),el.getAttribute('data-color')); updateTgtNote(); }
+function onGC(i,v){ const n=parseInt(v); if(!isNaN(n)&&n>=1) groups[i].count=n; updateTgtNote(); }
+function updateTgtNote(){
+  const tot=groups.reduce((a,g)=>a+(parseInt(g.count)||0),0);
+  document.getElementById('tgtNote').innerHTML=`총 <span>${tot}명</span> 생성 예정`;
+}
+
+// ── 랜덤 알고리즘 ──
+function gaussPick(steps){
+  const n=steps.length; if(n===1) return steps[0];
+  const mid=(n-1)/2;
+  const w=steps.map((_,i)=>Math.exp(-2.8*Math.pow((i-mid)/(mid||1),2)));
+  const sum=w.reduce((a,b)=>a+b,0); let r=Math.random()*sum;
+  for(let i=0;i<n;i++){r-=w[i];if(r<=0)return steps[i];}
+  return steps[Math.floor(n/2)];
+}
+function randPerson(){
+  const s={};
+  items.forEach(it=>{ s[it.id]=it.fixed?it.max:gaussPick(getSteps(it)); });
+  return s;
+}
+function getTotal(s){ return items.reduce((a,it)=>a+s[it.id],0); }
+
+function randPersonPass(){
+  for(let i=0;i<2000;i++){ const s=randPerson(); if(getTotal(s)>=60) return s; }
+  return randPerson();
+}
+function targetPerson(tgt){
+  const eff = Math.max(tgt,60);
+  for(let att=0;att<30;att++){
+    const s=randPerson();
+    for(let k=0;k<800;k++){
+      const diff=eff-getTotal(s); if(Math.abs(diff)<=2) break;
+      const pool=items.filter(it=>!it.fixed&&(diff>0?s[it.id]<it.max:s[it.id]>0));
+      if(!pool.length) break;
+      const it=pool[Math.floor(Math.random()*pool.length)];
+      const steps=getSteps(it); const idx=steps.indexOf(s[it.id]);
+      if(diff>0&&idx<steps.length-1) s[it.id]=steps[idx+1];
+      else if(diff<0&&idx>0)         s[it.id]=steps[idx-1];
+    }
+    if(getTotal(s)>=60) return s;
+  }
+  return randPersonPass();
+}
+
+function scoreCls(v,max){
+  if(v===0) return 's0';
+  const r=v/max;
+  if(r<=0.25) return 'slo';
+  if(r<=0.6)  return 'smd';
+  if(r<1)     return 'shi';
+  return 'smx';
+}
+
+// ── 생성 ──
+function generate(){
+  if(sumMax()!==100) return;
+  const niVal=parseInt(document.getElementById('ni').value);
+  if(!isNaN(niVal)&&niVal>=1&&niVal<=100) randomCount=niVal;
+
+  let people=[];
+  if(mode==='random'){
+    people=Array.from({length:randomCount},()=>({s:randPersonPass(),gi:-1,gc:''}));
+  } else {
+    groups.forEach((g,gi)=>{
+      const n=parseInt(g.count)||0;
+      const gc=GROUP_COLORS[gi%GROUP_COLORS.length];
+      for(let i=0;i<n;i++) people.push({s:targetPerson(g.score),gi,gc});
+    });
+  }
+
+  const totals=people.map(p=>getTotal(p.s));
+  const avg=(totals.reduce((a,b)=>a+b,0)/people.length).toFixed(1);
+  const maxT=Math.max(...totals), minT=Math.min(...totals);
+  const passN=totals.filter(t=>t>=60).length;
+
+  // Summary
+  const smEl=document.getElementById('smEl');
+  if(mode==='random'){
+    smEl.innerHTML=`
+      <div class="sc">총 <span class="n b">${people.length}명</span></div>
+      <div class="sc">평균 <span class="n y">${avg}점</span></div>
+      <div class="sc">최고 <span class="n g">${maxT}점</span></div>
+      <div class="sc">최저 <span class="n g">${minT}점</span></div>
+    `;
+  } else {
+    smEl.innerHTML=`
+      <div class="sc">총 <span class="n b">${people.length}명</span></div>
+      <div class="sc">합격 <span class="n g">${passN}명</span></div>
+      <div class="sc">불합격 <span class="n" style="color:var(--red)">${people.length-passN}명</span></div>
+      <div class="sc">합격률 <span class="n b">${Math.round(passN/people.length*100)}%</span></div>
+      <div class="sc">평균 <span class="n y">${avg}점</span></div>
+      <div class="sc">최고 <span class="n g">${maxT}점</span></div>
+      <div class="sc">최저 <span class="n" style="color:var(--red)">${minT}점</span></div>
+    `;
+  }
+
+  // Legend
+  const legEl=document.getElementById('legendEl');
+  if(mode==='target'){
+    legEl.style.display='flex';
+    legEl.innerHTML=groups.map((g,i)=>`
+      <div class="gl-chip"><div class="gl-dot" style="background:${GROUP_COLORS[i%GROUP_COLORS.length]}"></div>목표 ${g.score}점 · ${g.count}명</div>`).join('');
+  } else legEl.style.display='none';
+
+  // Table
+  const tbl=document.getElementById('resultTable');
+  let html='<thead><tr>';
+  html+=`<th rowspan="2" style="min-width:38px">No.</th>`;
+  if(mode==='target') html+=`<th rowspan="2" style="min-width:5px;padding:0"></th>`;
+  items.forEach(it=>{
+    const fc=it.fixed?' fixed-col':'';
+    html+=`<th class="${fc}" style="min-width:80px">${it.name}${it.fixed?' 🔒':''}<span class="mxlbl">${it.fixed?it.max+'점 고정':'/'+it.max+'점 ('+it.interval+'간격)'}</span></th>`;
+  });
+  html+=`<th rowspan="2" style="min-width:60px">총점<span class="mxlbl">/100</span></th>`;
+  if(mode!=='random') html+=`<th rowspan="2" style="min-width:54px">판정</th>`;
+  html+=`</tr></thead><tbody>`;
+
+  let prevGi=-2;
+  people.forEach((p,i)=>{
+    const total=totals[i],pass=total>=60;
+    const isGS=mode==='target'&&p.gi!==prevGi; prevGi=p.gi;
+    html+=`<tr class="${isGS?'gs':''}" style="animation-delay:${i*25}ms">`;
+    html+=`<td class="idx">${i+1}</td>`;
+    if(mode==='target') html+=`<td class="gm" style="background:${p.gc}1a;border-left:3px solid ${p.gc}!important"></td>`;
+    items.forEach(it=>{
+      const v=p.s[it.id];
+      const cls=it.fixed?'fixed-cell':scoreCls(v,it.max);
+      html+=`<td class="${cls}">${v}</td>`;
+    });
+    html+=`<td class="tot${mode!=='random'&&!pass?' fail':''}">${total}</td>`;
+    if(mode!=='random') html+=`<td class="vd"><span class="badge ${pass?'pass':'fail'}">${pass?'합격':'불합격'}</span></td>`;
+    html+=`</tr>`;
+  });
+  html+=`</tbody><tfoot><tr><td style="font-size:11px">평균</td>`;
+  if(mode==='target') html+=`<td></td>`;
+  items.forEach(it=>{
+    const a=it.fixed?it.max:(people.reduce((s,p)=>s+p.s[it.id],0)/people.length).toFixed(1);
+    html+=`<td>${a}</td>`;
+  });
+  html+=`<td class="ft">${avg}</td>`;
+  if(mode!=='random') html+=`<td></td>`;
+  html+=`</tr></tfoot>`;
+
+  tbl.innerHTML=html;
+  document.getElementById('resultWrap').style.display='block';
+  document.getElementById('resultWrap').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
